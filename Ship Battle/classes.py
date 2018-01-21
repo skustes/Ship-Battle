@@ -1,4 +1,5 @@
-from random import randint
+from random import randint, choice
+import time
 from functions import *
 
 # Game class
@@ -48,6 +49,8 @@ class Game(object):
 
         # Place the ships on the game board
         p1.place_ships( self.ships )
+        time.sleep(2)
+        p2.place_ships( self.ships )
 
     def how_many_players(self):
         valid_number = False
@@ -63,13 +66,7 @@ class Board(object):
     def __init__(self, size):
         self.size = size
         # Create blank board
-        self.board = []
-        row = []
-        for i in range(self.size):
-            row.append( "^" )
-        for j in range(self.size):
-            self.board.append( row )
-
+        self.board = [ [ "^" for i in range(0,self.size) ] for j in range(0,self.size) ]
         # Create a header of letters
         self.header = ["A","B","C","D","E","F","G","H","I","J"]
     
@@ -77,7 +74,7 @@ class Board(object):
     Grid functions to receive input, access, and check coordinates
     """
     def random_coordinate(self):
-        col = self.num_to_chr( randint(1,self.size) )
+        col = num_to_chr( randint(1,self.size) )
         row = randint(1,self.size)
         return col + str(row)
 
@@ -89,7 +86,7 @@ class Board(object):
         split = self.split_coordinate( coordinate )
 
         # First check that the coordinate was input in a valid format (A5, F8, B3, etc)
-        if self.is_valid_coordinate( split ):
+        if self.is_valid_format( split ):
             # Now check that it's on the board
             if self.is_on_board( split ):
                 # Now check that the ship physically fits
@@ -99,11 +96,27 @@ class Board(object):
                 else:
                     placement_result = [False,"Part of your ship is off the board or hits another ship."]
             else:
-                placement_result = [False,"The board isn't that big.  Try again."]
+                placement_result = [False,"That coordinate isn't on the board.  Try again."]
         else:
             placement_result = [False,"Invalid coordinate format"]
 
         return placement_result
+    # Automatically places the ships on the board using a random coordinate generator
+    def auto_place(self, ships):
+        for key in ships:
+            # Run a while loop to prevent progress until the current ship is validly placed
+            ship_placed = False
+            while ship_placed == False:
+                # Get a random point on the grid and a random direction
+                coordinate = self.random_coordinate()
+                ship_direction = choice( ["v","h"] )
+
+                # Try placing the ship on the board
+                placement_result = self.place_ship( coordinate , ship_direction , ships[key]["length"] , ships[key]["code"] )
+                # If the ship was placed successfully, wipe the screen and move on to the next one
+                # Otherwise, output the error
+                if placement_result[0] == True:
+                    ship_placed = True
 
     # Places the ship on the board, replacing the default character with the code for the ship for each spot the ship covers
     # Expects coordinate parameter to be a list with two components (run self.split_coordinate on input)
@@ -114,16 +127,15 @@ class Board(object):
 
         for i in range(0,length):
             if direction == "v":
-                #print("row:",str(row+i),"col:",col)
                 self.board[row+i][col] = code
             else:
                 self.board[row][col+i] = code
-
+        
         return True
 
     # Checks that the coordinate is in a valid format such as A5, F8, B10
     # Expects coordinate parameter to be a list with two components (run self.split_coordinate on input)
-    def is_valid_coordinate(self, coordinate):
+    def is_valid_format(self, coordinate):
         # Ensure the second part of the coordinate is an integer
         try:
             coordinate[1] = int( coordinate[1] )
@@ -190,7 +202,7 @@ class Board(object):
 class Player(object):
     def __init__(self, default_name):
         self.player_board = Board(10)
-        self.opponent_board = Board(10)
+        self.shot_board = Board(10)
         self.name = self.set_name( default_name )
 
     def set_name(self, default_name):
@@ -199,40 +211,56 @@ class Player(object):
             new_name = input( default_name + ", what's your name? " )
             if new_name.isalnum():
                 valid_name = True
-        return new_name
+        return "Admiral " + str( new_name )
     
+    # Steps the player through placing each ship as defined in Game class
     def place_ships(self, ships):
         print( self.name + ", time to place your ships.\n" )
+        # Run a while loop to prevent progress until a valid y or n input is given
+        valid_auto = False
+        while valid_auto == False:
+            auto_place_input = input( "Do you want me to place your ships automatically? (y/n) " ).lower()
+            if auto_place_input in ["y","n"]:
+                valid_auto = True
 
-        # Loop through the ships, allowing the player to place each one
-        # Checks are run after each entry to ensure the coordinates input are in a valid format and the ship can be physically placed
-        for key in ships:
-            print( "Here is your board: ")
-            self.print_own_board()
-            placement_result = []
+        if auto_place_input == "n":
+            # Loop through the ships, allowing the player to place each one
+            # Checks are run after each entry to ensure the coordinates input are in a valid format and the ship can be physically placed
+            for key in ships:
+                print( "Here is your board: ")
+                self.print_own_board()
+                placement_result = []
 
-            # Run a while loop to prevent progress until the current ship is validly placed
-            ship_placed = False
-            while ship_placed == False:
-                print( "Pick a coordinate for your", ships[key]["name"], "(length:", ships[key]["length"], ")" )
-                coordinate = input( "Ex: A10, F4, etc: ").upper()
+                # Run a while loop to prevent progress until the current ship is validly placed
+                ship_placed = False
+                while ship_placed == False:
+                    print( "Pick a coordinate for your", ships[key]["name"], "(length:", ships[key]["length"], ")" )
+                    coordinate = input( "Ex: A10, F4, etc: ").upper()
 
-                # Run a while loop to prevent progress until a valid direction input (v or h) is input
-                valid_direction = False
-                while valid_direction == False:
-                    ship_direction = input( "Vertical or horizontal [v/h]: ").lower()
-                    if ship_direction in ["v","h"]:
-                        valid_direction = True
+                    # Run a while loop to prevent progress until a valid direction input (v or h) is input
+                    valid_direction = False
+                    while valid_direction == False:
+                        ship_direction = input( "Vertical or horizontal [v/h]: ").lower()
+                        if ship_direction in ["v","h"]:
+                            valid_direction = True
 
-                # Try placing the ship on the board
-                placement_result = self.player_board.place_ship( coordinate , ship_direction , ships[key]["length"] , ships[key]["code"] )
-                # Output the result, clear the screen first if the ship was placed successfully
-                # wipe() if placement_result[0] == True else print()
-                print( placement_result[1] )
+                    # Try placing the ship on the board
+                    placement_result = self.player_board.place_ship( coordinate , ship_direction , ships[key]["length"] , ships[key]["code"] )
+                    # If the ship was placed successfully, wipe the screen and move on to the next one
+                    # Otherwise, output the error
+                    if placement_result[0] == True:
+                        wipe()
+                        ship_placed = True
+                    else:
+                        print( placement_result[1] )
+        else:
+            self.auto_place( ships )
 
-                # If the ship was placed successfully, move on to the next one.
-                if placement_result[0] == True:
-                    ship_placed = True
+        self.print_own_board()
+
+    # Passes the ships along to the player's board for auto-placement
+    def auto_place(self, ships):
+        self.player_board.auto_place( ships )
 
     """
     Attribute access methods
@@ -241,15 +269,20 @@ class Player(object):
         return self.name
     def get_own_board(self):
         return self.player_board
-    def get_opp_board(self):
-        return self.opponent_board
+    def get_shot_board(self):
+        return self.shot_board
     def print_own_board(self):
         self.player_board.print_board()
-    def print_opp_board(self):
-        self.opponent_board.print_board()
+    def print_shot_board(self):
+        self.shot_board.print_board()
 
 class CPUPlayer(Player):
     def __init__(self):
         self.player_board = Board(10)
-        self.opponent_board = Board(10)
+        self.shot_board = Board(10)
         self.name = "CPU"
+
+    def place_ships(self, ships):
+        print("Placing CPU ships...")
+        self.auto_place( ships )
+        time.sleep(2)
