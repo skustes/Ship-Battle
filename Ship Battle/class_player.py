@@ -169,7 +169,7 @@ class CPUPlayer(Player):
     # Determine which strategy is being used
     def set_strategy(self):
         easy = {
-            "first_shot": "a1"
+            "first_shot": "a1",
             "shot_increment": 2
             }
 

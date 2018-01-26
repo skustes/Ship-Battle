@@ -2,6 +2,9 @@
 from random import randint, choice
 import time
 from functions import *
+from class_board import Board
+from class_player import Player
+from class_ship import Ship
 
 # Game class
 class Game(object):
