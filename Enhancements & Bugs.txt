@@ -1,8 +1,6 @@
 Bugs:
-- Apostrophe not printing
 
 Enhancements:
-- Ship class
 - Seek and destroy mode for CPU
 - Easy, Medium, Hard for CPU shooting
 - Easy, Medium, Hard for CPU placement

@@ -8,7 +8,7 @@ class Game(object):
     def __init__(self):
         self.turn = "p1"
         self.players = 1        # Set a default
-        self.difficulty = "h"   # Set difficulty to hard by default
+        self.difficulty = "ve"   # Set difficulty to hard by default
         self.status = 0         # 0 if game in progress, 1 if p1 wins, 2 if p2 wins
         self.ships = {
             "carrier": {
@@ -47,8 +47,8 @@ class Game(object):
         if self.players == 2:
             p2 = Player( "Player 2" )
         else:
-            # self.set_difficulty_level()
-            p2 = CPUPlayer()
+            self.set_difficulty_level()
+            p2 = CPUPlayer( self.difficulty )
 
         # Clear the screen
         wipe()
@@ -113,10 +113,10 @@ class Game(object):
 
     # Set the difficulty level
     def set_difficulty_level(self):
-        valid_entries = ["e","m","h"]
+        valid_entries = [ "ve" , "e" ]
         valid_difficulty = False
         while valid_difficulty == False:
-            self.difficulty = input( "Easy, Medium, or Hard [e/m/h]: ")
+            self.difficulty = input( "Very Easy or Easy? [ve/e] ")
             if self.difficulty in valid_entries:
                 valid_difficulty = True
 
@@ -494,29 +494,16 @@ class Player(object):
 # CPUPlayer class
 # Extends Player class with functionality necessary for CPU play
 class CPUPlayer(Player):
-    def __init__(self):
+    def __init__(self, difficulty):
         self.name = "CPU"
         self.ships = {}
-        self.shot_results = { "shots": [], "results": [] }
+        self.shot_results = { "shots": [] , "results": [] }
 
         # CPU Player extended attributes
-        # self.difficulty = difficulty
-
-        # Determine which strategy will be used
-        # self.strategy = self.set_strategy()
-
-    # Determine which strategy is being used
-    def set_strategy(self):
-        easy = {
-            "first_shot": "a1",
-            "shot_increment": 2
+        self.difficulty = difficulty
+        self.kill_mode = {
+            "status": "off"
             }
-        # Different placement and shot strategies
-        # https://www.wikihow.com/Win-at-Battleship
-        # Very Easy - random firing without Kill mode
-        # Easy - random with Kill mode
-        # Medium - Parity sweep
-        # Hard - Adaptive (based on shortest remaining ship)
 
     # Use auto-place to put down the CPU ships
     def place_ships(self, ships, board):
@@ -526,9 +513,47 @@ class CPUPlayer(Player):
 
     # Ensures shot is not a duplicate, then returns the coordinate
     def bombs_away(self, board):
+        if self.difficulty == "ve":
+            shot_coordinate = self.shot_very_easy( board )
+        elif self.difficulty == "e":
+            shot_coordinate = self.shot_easy( board )
+        elif self.difficulty == "m":
+            shot_coordinate = self.shot_medium( board )
+        elif self.difficulty == "h":
+            shot_coordinate = self.shot_hard( board )
+        elif self.difficulty == "vh":
+            shot_coordinate = self.shot_very_hard( board )
+        return shot_coordinate
+        
+    # Returns the shot for Very Easy difficulty
+    # Random shots with no Kill mode when a ship is hit
+    # Like playing against someone that doesn't understand the objective of the game
+    def shot_very_easy(self, board):
         duplicate_shot = True
         while duplicate_shot == True:
             shot_coordinate = board.random_coordinate()
-            print(shot_coordinate)
             duplicate_shot = self.is_duplicate_shot( shot_coordinate )
         return shot_coordinate
+
+    # Returns the shot for Easy difficulty
+    # Random shots with Kill mode when a ship is hit
+    # Like playing against a 7-year old that understands the objective, but not the basics of strategy
+    def shot_easy(self, board):
+        pass
+
+    # Returns the shot for Medium difficulty
+    # Shoots only at every other square since the shortest ship is 2 squares long, uses Kill mode when a ship is hit
+    # Like playing against someone with a basic strategy
+    def shot_medium(self, board):
+        pass
+
+    # Returns the shot for Hard difficulty
+    # Bases next shot on shortest remaining opponent ship, uses Kill mode when a ship is hit
+    # Like playing against someone with a solid strategy based on knowledge of the opponent's ships
+    def shot_hard(self, board):
+        pass
+
+    # Returns the shot for Very Hard difficulty
+    # Probability model
+    def shot_very_hard(self, board):
+        pass
