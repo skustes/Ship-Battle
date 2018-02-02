@@ -1,9 +1,9 @@
-from random import randint, choice
+from random import randint, choice, shuffle
 import time
 from functions import *
 
 # Game class
-# Gets the game setup and handles game play
+# Sets up the game and handles game play
 class Game(object):
     def __init__(self):
         self.turn = "p1"
@@ -66,12 +66,16 @@ class Game(object):
             if self.turn == "p1":
                 shot = p1.bombs_away( board )
                 shot_result = p2.check_shot( shot )
-                p1.record_shot_result( shot , shot_result )
+                p1.record_shot_result( shot , shot_result , board )
             else:
                 shot = p2.bombs_away( board )
                 shot_result = p1.check_shot( shot )
-                p2.record_shot_result( shot , shot_result )
-            
+                p2.record_shot_result( shot , shot_result , board )
+                # If P2 is CPU, output some info about the shot
+                if p2.is_cpu():
+                    print("Here is your board with",p2.get_name(True),"shots:")
+                    p2.print_opponent_board( board , p1.get_ships() )
+                    print(p2.get_name(),"shoots at:",shot)
 
             # Output the results of the shot to the screen
             if shot_result[0] == False:
@@ -212,12 +216,60 @@ class Board(object):
     # Returns [row,column]. Ex: a2 -> [1,0], j5 -> [4,9]
     def split_coordinate(self, coordinate):
         col = coordinate[:1]                    # First character
-        row = coordinate[1:].lstrip("0")        # Remaining characters with leading zeroes stripped
+        row = coordinate[1:].lstrip("0") if len( coordinate[1:] ) > 1 else coordinate[1:]       # Remaining characters with leading zeroes stripped
         return [ int(row)-1 , chr_to_num(col) - 1 ]
 
     # Returns a coordinate string from its row and column components ex: [0,0] -> A1, [5,5] -> F6
     def join_coordinate(self, coordinate):
         return num_to_chr( coordinate[1]+1 ) + str( coordinate[0]+1 )
+
+    # Returns the points to the left/above coordinate_1 and to the right/below coordinate_2
+    # Checks the points for validity and removes invalid points
+    # Returns False if they don't share a row or column
+    def end_points(self, coordinate_1, coordinate_2):
+        split_1 = self.split_coordinate( coordinate_1 )
+        split_2 = self.split_coordinate( coordinate_2 )
+        return_coordinates = []
+
+        # If the coordinates share a row, return the points to the left and right
+        if split_1[0] == split_2[0]:
+            # Determine which is left and which is right
+            if split_1[1] <= split_2[1]:
+                one_left = split_1
+                one_right = split_2
+            else:
+                one_left = split_2
+                one_right = split_1
+
+            # Move one to the left and append the point if it's valid
+            one_left = self.join_coordinate( [ one_left[0] , one_left[1] - 1 ] )
+            if self.is_valid_format( one_left ) and self.is_on_board( one_left ):
+                return_coordinates.append( one_left )
+            # Move one to the right and append the point if it's valid
+            one_right = self.join_coordinate( [ one_right[0] , one_right[1] + 1 ] )
+            if self.is_valid_format( one_right ) and self.is_on_board( one_right ):
+                return_coordinates.append( one_right )
+        # If the coordinates share a column, return the points above and below
+        elif split_1[1] == split_2[1]:
+            # Determine which is more towards the top of the board
+            if split_1[0] <= split_2[0]:
+                one_above = split_1
+                one_below = split_2
+            else:
+                one_above = split_2
+                one_below = split_1
+
+            one_above = self.join_coordinate( [ one_above[0] - 1 , one_above[1] ] )
+            if self.is_valid_format( one_above ) and self.is_on_board( one_above ):
+                return_coordinates.append( one_above )
+            one_below = self.join_coordinate( [ one_below[0] + 1 , one_below[1] ] )
+            if self.is_valid_format( one_below ) and self.is_on_board( one_below ):
+                return_coordinates.append( one_below )
+        # Otherwise, they aren't on either a column or row
+        else:
+            return False
+
+        return return_coordinates
 
     # Prints the board with an optional overlay
     # Overlay is a list of tuples representing a coordinate and the character to overlay, ex: [ [A2,"X"] , [B5,"O"] ]
@@ -285,6 +337,7 @@ class Player(object):
         self.name = self.set_name( default_name )
         self.ships = {}
         self.shot_results = { "shots": [], "results": [] }
+        self.cpu = "n"
 
     # Lets the player set their name and adds Admiral to it because I'm funny
     def set_name(self, default_name):
@@ -416,9 +469,7 @@ class Player(object):
 
         # Print information about the last shot and the last hit
         if len( self.shot_results["shots"] ) > 0:
-            # Find the last shot that was a hit
-            # all_hits = [i for i, x in enumerate( self.shot_results["results"] ) if x == 'h']
-            print("Your last shot was a","miss" if self.shot_results["results"][-1] == "m" else "hit","at",self.shot_results["shots"][-1])
+            print("Your last shot was a","miss" if self.shot_results["results"][-1] == "O" else "hit","at",self.shot_results["shots"][-1])
 
         message = self.name + ", where do you want to shoot?"
         is_duplicate_shot = True
@@ -453,11 +504,11 @@ class Player(object):
 
         return shot_result
 
-    # Updates the shot board and shot_results lists
+    # Updates the shot_results lists
     # Expects grid coordinate shot at and shot_result list returned from opponent's check_shot method
-    def record_shot_result(self, shot, shot_result):
+    def record_shot_result(self, shot, shot_result, board):
         self.shot_results["shots"].append(shot)
-        self.shot_results["results"].append("m" if shot_result[0] == False else "h")
+        self.shot_results["results"].append("O" if shot_result[0] == False else "X")
 
     # Attribute access methods
     def get_name(self, possessive = False):
@@ -468,6 +519,9 @@ class Player(object):
     # Returns a list with the coordinates of all of the player's ships
     def all_ship_coordinates(self):
         return [ coordinate for key in self.ships for coordinate in self.ships[key].get_coordinates() ]
+    # Returns the Ship objects for the player
+    def get_ships(self):
+        return self.ships
     # Prints the board with the player's ships overlaid on the proper coordinates
     def print_own_board(self, board):
         overlay = {}
@@ -482,7 +536,9 @@ class Player(object):
         for index in range(0,len(self.shot_results["shots"])):
             overlay[self.shot_results["shots"][index]] = self.shot_results["results"][index]
         board.print_board( overlay )
-
+    # Returns True if is CPU player or False if is human player
+    def is_cpu(self):
+        return True if self.cpu == "y" else False
     # Returns an integer indicating how many of the player's ships are still floating
     def get_ships_remaining(self):
         ships_afloat = 0
@@ -498,11 +554,20 @@ class CPUPlayer(Player):
         self.name = "CPU"
         self.ships = {}
         self.shot_results = { "shots": [] , "results": [] }
+        self.cpu = "y"
 
         # CPU Player extended attributes
         self.difficulty = difficulty
         self.kill_mode = {
-            "status": "off"
+            "status": "off",
+            "target_ship": "",
+            "first_hit": "",
+            "ship_coordinates": [],
+            "locked": "off",
+            "lock_direction": "",
+            "optimized": "n",
+            "targets": [],
+            "other_ships_hit": []
             }
 
     # Use auto-place to put down the CPU ships
@@ -510,6 +575,49 @@ class CPUPlayer(Player):
         print("Placing CPU ships...")
         self.auto_place( ships , board )
         time.sleep(1)
+
+    # Updates the shot_results lists and activates/deactivates kill mode
+    # Expects grid coordinate shot at and shot_result list returned from opponent's check_shot method
+    def record_shot_result(self, shot, shot_result, board):
+        self.shot_results["shots"].append( shot )
+        self.shot_results["results"].append( "O" if shot_result[0] == False else "X" )
+
+        # First hit - Record hit in first_hit and ship_coordinates, engage kill mode
+        # Second hit - Lock direction, update ship_coordinates, update "targets" based on direction
+        # Additional hits - Update ship_coordinates and targets
+        # Sunk ship - Disengage kill mode
+
+        # If the target ship was sunk...
+        if shot_result[0] == True and shot_result[2] == False:
+            self.kill_mode_disengage()
+
+            # If any other ships were hit, reactivate kill mode to target the next ship
+            if len( self.kill_mode["other_ships_hit"] ) > 0:
+                next_ship = self.kill_mode["other_ships_hit"].pop(0)
+                self.kill_mode_engage( board, next_ship[1] , next_ship[0] , "n" if self.difficulty == "e" else "y" )
+        # If the shot was the first hit on a ship, engage kill mode
+        elif shot_result[0] == True and not self.kill_mode_active():
+            self.kill_mode_engage( board, shot , shot_result[1] , "n" if self.difficulty == "e" else "y" )
+        # If the shot was the a hit on the same ship...
+        elif shot_result[0] == True and self.kill_mode_active() and self.kill_mode["target_ship"] == shot_result[1]:
+            # Append the successful shot to the known coordinates of the shot
+            self.kill_mode["ship_coordinates"].append( shot )
+
+            # If this is the 2nd shot on the ship, lock the direction of kill mode
+            if not self.kill_mode_locked():
+                self.direction_lock( shot , board )
+
+            # Update the targets to be the points just beyond the known boundaries of the ship
+            self.kill_mode["targets"] = []
+            end_points = board.end_points( shot , self.kill_mode["first_hit"] )
+            for point in end_points:
+                if not self.is_duplicate_shot( point ):
+                    self.kill_mode["targets"].append( point )
+
+        # If the shot was the first hit on a different ship, record the result in other_ships_hit, but continue targeting the first ship
+        elif shot_result[0] == True and self.kill_mode_active() and self.kill_mode["target_ship"] != shot_result[1]:
+            self.kill_mode["other_ships_hit"].append( [ shot_result[1] , shot ] )
+        print(self.kill_mode)
 
     # Ensures shot is not a duplicate, then returns the coordinate
     def bombs_away(self, board):
@@ -539,7 +647,17 @@ class CPUPlayer(Player):
     # Random shots with Kill mode when a ship is hit
     # Like playing against a 7-year old that understands the objective, but not the basics of strategy
     def shot_easy(self, board):
-        pass
+        # If kill mode isn't active, continue random firing
+        if not self.kill_mode_active():
+            duplicate_shot = True
+            while duplicate_shot == True:
+                shot_coordinate = board.random_coordinate()
+                duplicate_shot = self.is_duplicate_shot( shot_coordinate )
+        # If kill mode is active, fire at the targeted ship
+        else:
+            shot_coordinate = self.kill_mode["targets"].pop(0)
+
+        return shot_coordinate
 
     # Returns the shot for Medium difficulty
     # Shoots only at every other square since the shortest ship is 2 squares long, uses Kill mode when a ship is hit
@@ -548,12 +666,106 @@ class CPUPlayer(Player):
         pass
 
     # Returns the shot for Hard difficulty
-    # Bases next shot on shortest remaining opponent ship, uses Kill mode when a ship is hit
-    # Like playing against someone with a solid strategy based on knowledge of the opponent's ships
+    # Basic probability model
+    # http://thephysicsvirtuosi.com/posts/the-linear-theory-of-battleship.html
+    # Like playing against someone with a solid strategy based on knowledge of where ships are likely to be
     def shot_hard(self, board):
         pass
 
     # Returns the shot for Very Hard difficulty
-    # Probability model
+    # Complex probability model
     def shot_very_hard(self, board):
         pass
+
+    # Gets the squares adjacent to the first hit coordinate
+    # Returns a list of valid coordinates that aren't duplicate shots, shuffled to a random order
+    def get_adjacents(self, board):
+        adjacents = []
+        # Addends to move to the adjacent squares, ordered as left, right, up, down
+        addends = [ [0,-1],[0,1],[-1,0],[1,0] ]
+        split_hit = board.split_coordinate( self.kill_mode["first_hit"] )
+
+        # Loop the addends, creating the 4 adjacent squares
+        for addend in addends:
+            adjacent_coordinate = [ split_hit[0] + addend[0] , split_hit[1] + addend[1] ]
+            coordinate = board.join_coordinate( adjacent_coordinate )
+            # If it's a valid coordinate and hasn't been shot at previously, add it to the return value list
+            if board.is_valid_format( coordinate ) and board.is_on_board( coordinate ) and not self.is_duplicate_shot( coordinate ):
+                adjacents.append( coordinate )
+        return adjacents
+
+    # Locks onto the direction of the target and updates the list of possible target squares
+    def direction_lock(self, shot, board):
+        # Determine if the shot was placed vertically or horizontally from the first square hit
+        split_first_hit = board.split_coordinate( self.kill_mode["first_hit"] )
+        split_shot = board.split_coordinate( shot )
+        self.kill_mode["locked"] = "on"
+        
+        # If the row is identical, lock on horizontally
+        if split_first_hit[0] == split_shot[0]:
+            self.kill_mode["lock_direction"] = "h"
+            # Remove any remaining targets that aren't in this row
+            # self.kill_mode["targets"] = [coordinate for coordinate in self.kill_mode["targets"] if split_shot[0] == board.split_coordinate( coordinate )[0] ]
+        # Otherwise, lock on vertically
+        else:
+            self.kill_mode["lock_direction"] = "v"
+            # Remove any remaining targets that aren't in this column
+            # self.kill_mode["targets"] = [coordinate for coordinate in self.kill_mode["targets"] if split_shot[1] == board.split_coordinate( coordinate )[1] ]
+
+    # Turn kill mode on and off
+    def kill_mode_engage(self, board, coordinate="", target_ship = "" , optimized="n"):
+        # Ensure parameters are set to valid values
+        if optimized not in ["n","y"]:
+            optimized = "n"
+
+        self.kill_mode["target_ship"] = target_ship
+        self.kill_mode["first_hit"] = coordinate
+        self.kill_mode["ship_coordinates"].append(coordinate)
+        self.kill_mode["optimized"] = optimized
+        self.kill_mode["targets"] = self.get_adjacents( board )
+        self.kill_mode["other_ships_hit"]: []
+            
+        # If in optimized mode, determine which direction has highest probability of containing ship
+        if self.kill_mode["optimized"] == "y":
+            pass
+        # If not optimized, shuffle the target coordinates
+        else:
+            shuffle( self.kill_mode["targets"] )
+
+        self.kill_mode["status"] = "on"
+
+    # Disengage kill mode, reset attribute
+    def kill_mode_disengage(self):
+        self.kill_mode["target_ship"] = ""
+        self.kill_mode["first_hit"] = ""
+        self.kill_mode["ship_coordinates"] = []
+        self.kill_mode["locked"] = "off"
+        self.kill_mode["lock_direction"] = ""
+        self.kill_mode["optimized"] = "n"
+        self.kill_mode["targets"] = []
+        self.kill_mode["other_ships_hit"]: []
+        self.kill_mode["status"] = "off"
+
+    # Is kill mode active?
+    def kill_mode_active(self):
+        return True if self.kill_mode["status"] == "on" else False
+
+    # Does kill mode have a direction lock?
+    def kill_mode_locked(self):
+        return True if self.kill_mode["locked"] == "on" else False
+
+    # Prints the opponent's board with the opponent's ships overlaid on the proper coordinates with CPU's hits and misses
+    def print_opponent_board(self, board, ships):
+        print(self.shot_results["shots"])
+        overlay = {}
+        # Add the opponent's ships to the overlay
+        for key in ships:
+            ship_code = ships[key].get_code()
+            for coordinate in ships[key].get_coordinates():
+                overlay[coordinate] = ship_code
+
+        # Add the Player's shots to the overlay, overwriting existing coordinates where opponent's ships are with shot results
+        for index in range(0,len(self.shot_results["shots"])):
+            overlay[self.shot_results["shots"][index]] = self.shot_results["results"][index]
+
+        board.print_board( overlay )
