@@ -1,8 +1,8 @@
 Bugs:
 
 Enhancements:
-- Seek and destroy mode for CPU
-- Easy, Medium, Hard for CPU shooting
+- Optimized kill mode for CPU
+- Parity searching for CPU
 - Easy, Medium, Hard for CPU placement
 - Session keeping with statistics
 - Historical statistical records
