@@ -1,4 +1,4 @@
-# Release 1.1
+# Release 1.2
 # Battleship-inspired grid game
 
 from classes import Game

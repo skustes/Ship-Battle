@@ -1,9 +1,8 @@
 Bugs:
 
 Enhancements:
-- Optimized kill mode for CPU
+
+- Simulation sessions with CSV writing
 - Parity searching for CPU
 - Easy, Medium, Hard for CPU placement
-- Session keeping with statistics
-- Historical statistical records
 - Graphical interface
