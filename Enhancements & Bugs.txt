@@ -1,8 +1,9 @@
 Bugs:
+- Sorting bug in board.end_points(): fixed
+- Targeting error ship hit twice during targeting of other ships: fixed
 
 Enhancements:
 
-- Simulation sessions with CSV writing
 - Parity searching for CPU
 - Easy, Medium, Hard for CPU placement
 - Graphical interface

@@ -1,7 +1,7 @@
 # Release 1.2
 # Battleship-inspired grid game
 
-from classes import Game
+from classes import Session
 
-game = Game()
-game.play()
+session = Session()
+session.start()

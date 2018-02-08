@@ -1,20 +1,120 @@
 from random import randint, choice, shuffle
 import time
+import csv
 from functions import *
 
 # Session class
 # Allows for multiple games with statistics
 class Session(object):
     def __init__(self):
-        pass
+        self.game_mode = "p"
+        self.simulations = [
+            {
+                "mode": "shoot",
+                "p1_difficulty": 1,
+                "p2_difficulty": 1,
+                "games": 1000
+                },
+            {
+                "mode": "shoot",
+                "p1_difficulty": 2,
+                "p2_difficulty": 2,
+                "games": 1000
+                },
+            {
+                "mode": "shoot",
+                "p1_difficulty": 3,
+                "p2_difficulty": 3,
+                "games": 1000
+                },
+            {
+                "mode": "vs",
+                "p1_difficulty": 1,
+                "p2_difficulty": 2,
+                "games": 1000
+                },
+            {
+                "mode": "vs",
+                "p1_difficulty": 1,
+                "p2_difficulty": 3,
+                "games": 1000
+                },
+            {
+                "mode": "vs",
+                "p1_difficulty": 2,
+                "p2_difficulty": 3,
+                "games": 1000
+                }
+            ]
+        # Comment out when not debugging
+        """self.simulations = [
+            {
+                "mode": "vs",
+                "p1_difficulty": 2,
+                "p2_difficulty": 3,
+                "games": 1000
+                } 
+            ]"""
 
+    # Main control of session
     def start(self):
-        pass
+        self.set_game_mode()
 
-    def print_to_file(self):
-        # Difficulty, shots to win, accuracy of first shot in kill mode
-        pass
+        if self.game_mode == "p":
+            self.play()
+        else:
+            self.simulate()
 
+    # Determine if the user wants to run in normal gameplay or simulation mode
+    def set_game_mode(self):
+        valid_modes = ["p","s"]
+        valid_mode = False
+        while valid_mode == False:
+            self.game_mode = input("Do you want to play or run a simulation? [p/s] ")
+            if self.game_mode in valid_modes:
+                valid_mode = True
+
+    # Play normally
+    def play(self):
+        continue_playing = True
+        while continue_playing is True:
+            game = Game()
+            game.play()
+
+            continue_playing = self.play_again()
+
+    # Simulate games for testing/statistical purposes
+    def simulate(self):
+        for simulation in self.simulations:
+            for game_number in range(0,simulation["games"]):
+                print("Game number:",game_number+1)
+                print(simulation)
+                game = Game()
+                statistics = game.simulation( simulation["p1_difficulty"] , simulation["p2_difficulty"] , simulation["mode"] )
+                print( statistics )
+                self.print_to_file( statistics , simulation["mode"] )
+
+    # Does the player want to play again?
+    # Returns True or False
+    def play_again(self):
+        valid_input = False
+        while valid_input == False:
+            play_again = input( "Do you want to play again? (y/n) " ).lower()
+            if play_again in ["y","n"]:
+                valid_input = True
+        return True if play_again == "y" else False
+
+    def print_to_file(self, statistics, mode):
+        if mode == "shoot":
+            data = [ statistics["p1_difficulty"] , statistics["shots"] , statistics["accuracy"] , statistics["first_shot_accuracy"] ]
+        else:
+            data = [ statistics["p1_difficulty"] , statistics["p1_shots"] , statistics["p2_difficulty"] , statistics["p2_shots"] , statistics["winner"] ]
+
+        file_name = mode + "_statistics.csv"
+        with open( file_name , 'a' , newline='' ) as stats_file:
+            writer = csv.writer( stats_file , delimiter=',' )
+            writer.writerow( data )
+       
 # Game class
 # Sets up the game and handles game play
 class Game(object):
@@ -52,6 +152,7 @@ class Game(object):
                 },
             }
 
+    # Plays a game between 1 Player and CPU or 2 Players
     def play(self):
         # Setup the board and the players
         board = Board( 10 )
@@ -70,6 +171,9 @@ class Game(object):
         # Place the ships on the game board
         p1.place_ships( self.ships , board )
         time.sleep(1)
+        if p2.is_cpu():
+            print("Placing CPU ships...")
+            time.sleep(1)
         p2.place_ships( self.ships , board )
         
         # Repeat until someone wins
@@ -104,8 +208,6 @@ class Game(object):
             if p1.get_ships_remaining() == 0:
                 self.status = 2
                 print(p2.get_name(),"wins!")
-                print( "Total shots:",p2.shots_taken() )
-                print( "First shot accuracy:",p2.first_shot_accuracy() )
             elif p2.get_ships_remaining() == 0:
                 self.status = 1
                 print(p1.get_name(),"wins!")
@@ -117,14 +219,52 @@ class Game(object):
                       ships_remaining,
                       "ships" if ships_remaining > 1 else "ship",
                       "still in the fight!")
-            print(p2.shot_results["km_first"])
-            print("")
-            print("")
-            print("")
-            print("")
             self.turn = "p2" if self.turn == "p1" else "p1"
-            # input("Press enter to continue.")
+            print(p2.kill_mode)
+            print("")
+            print("")
+            print("")
+            input("Press enter to continue.")
     
+    # Plays a simulated game between two CPU players
+    # Has two modes:    "shoot" - test and record shooting algorithm
+    #                   "vs"    - test two different CPU difficulties against each other
+    def simulation(self, p1_diff, p2_diff, mode="shoot"):
+        if mode not in ["shoot","vs"]:
+            mode = "shoot"
+
+        # Setup the board and the players
+        board = Board( 10 )
+        p1 = CPUPlayer( p1_diff )
+        p2 = CPUPlayer( p2_diff )
+
+        # Place the ships on the game board
+        p1.place_ships( self.ships , board )
+        p2.place_ships( self.ships , board )
+
+        # Repeat until someone wins
+        while self.status == 0:
+            # Alternate turns
+            if self.turn == "p1":
+                shot = p1.bombs_away( board )
+                shot_result = p2.check_shot( shot )
+                p1.record_shot_result( shot , shot_result , board )
+            else:
+                shot = p2.bombs_away( board )
+                shot_result = p1.check_shot( shot )
+                p2.record_shot_result( shot , shot_result , board ) 
+                p2.print_opponent_board( board , p1.get_ships() )
+
+            if p1.get_ships_remaining() == 0:
+                self.status = 2
+            elif p2.get_ships_remaining() == 0:
+                self.status = 1
+
+            if mode == "vs":
+                self.turn = "p2" if self.turn == "p1" else "p1"
+            if self.status != 0:
+                return self.statistics( p1 , p2 , mode , "p" + str( self.status ) )
+
     # Set the number of players
     def how_many_players(self):
         valid_number = False
@@ -150,6 +290,29 @@ class Game(object):
         for key in self.ships:
             if self.ships[key]["code"] == code:
                 return self.ships[key]["name"]
+
+    # Returns the statistics of a game
+    def statistics(self, p1, p2, mode="shoot", winner=""):
+        if mode not in ["shoot","vs"]:
+            mode = "shoot"
+
+        # Shoot mode - p1_difficulty, shots taken, accuracy, first hit accuracy
+        # vs mode - p1_difficulty, p2_difficulty, winner
+        if mode == "shoot":
+            return {
+                "p1_difficulty": p1.get_difficulty(),
+                "shots": p1.shots_taken(),
+                "accuracy": p1.accuracy(),
+                "first_shot_accuracy": p1.first_shot_accuracy()
+                }
+        else:
+            return {
+                "p1_difficulty": p1.get_difficulty(),
+                "p1_shots": p1.shots_taken(),
+                "p2_difficulty": p2.get_difficulty(),
+                "p2_shots": p2.shots_taken(),
+                "winner": winner
+                }
 
 # Board class
 # Manages grid coordinates and layout
@@ -248,26 +411,27 @@ class Board(object):
     # Checks the points for validity and removes invalid points
     # Returns False if they don't share a row or column
     def end_points(self, ship_coordinates):
-        # Sort the coordinates into ascending order
-        # Automatically works for both row and column, sorting for ex: a2,b2,c2 or f2,f3,f4
-        ship_coordinates.sort()
+        # Sort the coordinates into ascending order ex: a2,b2,c2 or f2,f3,f4
+        split_coordinates = []
+        for coordinate in ship_coordinates:
+            split_coordinates.append( self.split_coordinate( coordinate ) )
 
-        # Get the first and last coordinates from the sorted list and split into row/column format
-        coordinate_1 = ship_coordinates[0]
-        coordinate_2 = ship_coordinates[-1]
-        split_1 = self.split_coordinate( coordinate_1 )
-        split_2 = self.split_coordinate( coordinate_2 )
+        split_coordinates.sort()
+
+        # Get the first and last coordinates from the sorted list 
+        coordinate_1 = split_coordinates[0]
+        coordinate_2 = split_coordinates[-1]
         return_coordinates = []
 
         # If the coordinates share a row, return the points to the left and right
-        if split_1[0] == split_2[0]:
+        if coordinate_1[0] == coordinate_2[0]:
             # Determine which is left and which is right
-            if split_1[1] <= split_2[1]:
-                one_left = split_1
-                one_right = split_2
+            if coordinate_1[1] <= coordinate_2[1]:
+                one_left = coordinate_1
+                one_right = coordinate_2
             else:
-                one_left = split_2
-                one_right = split_1
+                one_left = coordinate_2
+                one_right = coordinate_1
 
             # Move one to the left and append the point if it's valid
             one_left = self.join_coordinate( [ one_left[0] , one_left[1] - 1 ] )
@@ -278,14 +442,14 @@ class Board(object):
             if self.is_valid_format( one_right ) and self.is_on_board( one_right ):
                 return_coordinates.append( one_right )
         # If the coordinates share a column, return the points above and below
-        elif split_1[1] == split_2[1]:
+        elif coordinate_1[1] == coordinate_2[1]:
             # Determine which is more towards the top of the board
-            if split_1[0] <= split_2[0]:
-                one_above = split_1
-                one_below = split_2
+            if coordinate_1[0] <= coordinate_2[0]:
+                one_above = coordinate_1
+                one_below = coordinate_2
             else:
-                one_above = split_2
-                one_below = split_1
+                one_above = coordinate_2
+                one_below = coordinate_1
 
             one_above = self.join_coordinate( [ one_above[0] - 1 , one_above[1] ] )
             if self.is_valid_format( one_above ) and self.is_on_board( one_above ):
@@ -296,7 +460,7 @@ class Board(object):
         # Otherwise, they aren't on either a column or row
         else:
             return False
-
+        
         return return_coordinates
 
     # Prints the board with an optional overlay
@@ -582,21 +746,20 @@ class CPUPlayer(Player):
         self.name = "CPU"
         self.ships = {}
         self.shot_results = { "shots": [] , "results": [] , "km_first": [] }
-        self.cpu = "y"
 
         # CPU Player extended attributes
+        self.cpu = "y"
         self.difficulty = difficulty
         self.kill_mode = {
             "status": "off",
             "target_ship": "",
             "first_hit": "",
             "ship_coordinates": [],
-            "locked": "off",
-            "lock_direction": "",
             "optimized": "n",
             "targets": [],
             "other_ships_hit": []
             }
+        self.record_first_hit = 0 # For statistical measurement of first hit accuracy
 
     # Use auto-place to put down the CPU ships
     def place_ships(self, ships, board):
@@ -604,9 +767,7 @@ class CPUPlayer(Player):
         self.record_opponent_ships( ships )
 
         # And place the ships for the CPU
-        print("Placing CPU ships...")
         self.auto_place( ships , board )
-        time.sleep(1)
     
     # Record the letter code of each ship for tracking which ships the opponent still has
     def record_opponent_ships(self, ships):
@@ -621,17 +782,27 @@ class CPUPlayer(Player):
         self.shot_results["shots"].append( shot )
         self.shot_results["results"].append( "O" if shot_result[0] == False else "X" )
 
+        if self.record_first_hit == 1: # If this is the first shot after a hit, record it for checking accuracy of first shots
+            self.shot_results["km_first"].append( shot )
+            self.record_first_hit = 0
+
         # If the target ship was sunk...
         if shot_result[0] == True and shot_result[2] == False:
             # Record the ship as sunk and disengage Kill Mode
             self.opponent_ships[ shot_result[1] ] = 0
-            print(self.opponent_ships)
             self.kill_mode_disengage()
 
             # If any other ships were hit, reactivate kill mode to target the next ship
             if len( self.kill_mode["other_ships_hit"] ) > 0:
                 next_ship = self.kill_mode["other_ships_hit"].pop(0)
                 self.kill_mode_engage( board, next_ship[1] , next_ship[0] , "n" if self.difficulty == "e" else "y" )
+
+                # If the ship was already hit more than once ( rare bug with A = A1-E1, B = C2-C6, S = D2-F2 or 
+                # similar configuration where a ship can be hit multiple times before active targeting )
+                if len( next_ship[2] ) > 1:
+                    self.kill_mode["ship_coordinates"] = next_ship[2]
+                    self.kill_mode["targets"] = self.end_points( board , next_ship[2] )
+                
         # If the shot was the first hit on a ship, engage kill mode
         elif shot_result[0] == True and not self.kill_mode_active():
             self.kill_mode_engage( board, shot , shot_result[1] , "n" if self.difficulty == "e" else "y" )
@@ -641,20 +812,27 @@ class CPUPlayer(Player):
             self.kill_mode["ship_coordinates"].append( shot )
 
             # If this is the 2nd shot on the ship, lock the direction of kill mode
-            if not self.kill_mode_locked():
-                self.direction_lock( shot , board )
+            #if not self.kill_mode_locked():
+            #    self.direction_lock( shot , board )
 
             # Update the targets to be the points just beyond the known boundaries of the ship
-            self.kill_mode["targets"] = []
-            end_points = board.end_points( self.kill_mode["ship_coordinates"] )
+            # self.kill_mode["targets"] = []
+            self.kill_mode["targets"] = self.end_points( board , self.kill_mode["ship_coordinates"] )
 
-            for point in end_points:
-                if not self.is_duplicate_shot( point ):
-                    self.kill_mode["targets"].append( point )
         # If the shot was the first hit on a different ship, record the result in other_ships_hit, but continue targeting the first ship
         elif shot_result[0] == True and self.kill_mode_active() and self.kill_mode["target_ship"] != shot_result[1]:
-            self.kill_mode["other_ships_hit"].append( [ shot_result[1] , shot ] )
-        print(self.kill_mode)
+            # Determine if this ship has been hit before ( rare bug with A = A1-E1, B = C2-C6, S = D2-F2 or 
+            # similar configuration where a ship can be hit multiple times before active targeting )
+            ship_found = False
+            for ship in self.kill_mode["other_ships_hit"]:
+                # If the ship was already hit, append the shot to the known ship coordinates
+                if ship[0] == shot_result[1]:
+                    ship[2].append( shot )
+                    ship_found = True
+            
+            # If the ship hasn't already been hit, append it
+            if ship_found is False:
+                self.kill_mode["other_ships_hit"].append( [ shot_result[1] , shot , [ shot ] ] )
 
     # Calls the shot generator for based on difficulty level
     def bombs_away(self, board):
@@ -722,7 +900,7 @@ class CPUPlayer(Player):
         return shot_coordinate
 
     # Turn kill mode on and off
-    def kill_mode_engage(self, board, coordinate="", target_ship = "" , optimized="n"):
+    def kill_mode_engage(self, board, coordinate, target_ship = "" , optimized="n"):
         # Ensure parameters are set to valid values
         if optimized not in ["n","y"]:
             optimized = "n"
@@ -731,7 +909,6 @@ class CPUPlayer(Player):
         self.kill_mode["first_hit"] = coordinate
         self.kill_mode["ship_coordinates"].append(coordinate)
         self.kill_mode["optimized"] = optimized
-        self.kill_mode["other_ships_hit"]: []
             
         # If in optimized mode, determine which direction has highest probability of containing ship
         if self.kill_mode["optimized"] == "y":
@@ -742,7 +919,7 @@ class CPUPlayer(Player):
             shuffle( self.kill_mode["targets"] )
 
         self.kill_mode["status"] = "on"
-        self.shot_results["km_first"].append( self.kill_mode["targets"][0] )  # For statistical measurement of first hit accuracy
+        self.record_first_hit = 1
     
     # Gets the squares adjacent to the first hit coordinate
     # Returns a list of valid coordinates that aren't duplicate shots
@@ -761,19 +938,9 @@ class CPUPlayer(Player):
                 adjacents.append( coordinate )
         return adjacents
 
-    # Locks onto the direction of the target and updates the list of possible target squares
-    def direction_lock(self, shot, board):
-        # Determine if the shot was placed vertically or horizontally from the first square hit
-        split_first_hit = board.split_coordinate( self.kill_mode["first_hit"] )
-        split_shot = board.split_coordinate( shot )
-        self.kill_mode["locked"] = "on"
-        
-        # If the row is identical, lock on horizontally
-        if split_first_hit[0] == split_shot[0]:
-            self.kill_mode["lock_direction"] = "h"
-        # Otherwise, lock on vertically
-        else:
-            self.kill_mode["lock_direction"] = "v"
+    # Gets the end points of the ship, excluding duplicate shots
+    def end_points(self, board, coordinates):
+        return [ point for point in board.end_points( coordinates ) if not self.is_duplicate_shot( point ) ]
 
     # Optimize the targets based on determining if firing vertically or horizontally has the highest chance of containing a ship
     # Reorders self.kill_mode["targets"].  No return value
@@ -901,11 +1068,8 @@ class CPUPlayer(Player):
         self.kill_mode["target_ship"] = ""
         self.kill_mode["first_hit"] = ""
         self.kill_mode["ship_coordinates"] = []
-        self.kill_mode["locked"] = "off"
-        self.kill_mode["lock_direction"] = ""
         self.kill_mode["optimized"] = "n"
         self.kill_mode["targets"] = []
-        self.kill_mode["other_ships_hit"]: []
         self.kill_mode["status"] = "off"
 
     # Is kill mode active?
@@ -932,9 +1096,17 @@ class CPUPlayer(Player):
 
         board.print_board( overlay )
 
+    # Returns the difficulty level of the CPU player
+    def get_difficulty(self):
+        return self.difficulty
+
     # Returns the number of shots taken
     def shots_taken(self):
         return len( self.shot_results["shots"] )
+
+    # Returns the number of hits divided by the number of shots
+    def accuracy(self):
+        return round( self.shot_results["results"].count("X") / self.shots_taken() , 2 )
 
     # Determines the accuracy of the first shot after a hit
     # Returns hits/total first shots
