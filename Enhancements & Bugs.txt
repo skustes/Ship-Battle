@@ -2,8 +2,11 @@ Bugs:
 - Sorting bug in board.end_points(): fixed
 - Targeting error ship hit twice during targeting of other ships: fixed
 
+- Unknown bug, kill_mode["targets"] out of range, appears only every few thousand games
+
 Enhancements:
 
-- Parity searching for CPU
+- Sector targeting (diff 5)
+- Full probability (diff 6)
 - Easy, Medium, Hard for CPU placement
 - Graphical interface
