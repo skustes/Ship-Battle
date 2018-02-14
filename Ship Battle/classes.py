@@ -19,85 +19,85 @@ class Session(object):
                 "mode": "shoot",
                 "p1_difficulty": 1,
                 "p2_difficulty": 1,
-                "games": 0
+                "games": 2000
                 },
             {
                 "mode": "shoot",
                 "p1_difficulty": 2,
                 "p2_difficulty": 2,
-                "games": 0
+                "games": 2000
                 },
             {
                 "mode": "shoot",
                 "p1_difficulty": 3,
                 "p2_difficulty": 3,
-                "games": 0
+                "games": 2000
                 },
             {
                 "mode": "shoot",
                 "p1_difficulty": 4,
                 "p2_difficulty": 4,
-                "games": 0
+                "games": 2000
                 },
             {
                 "mode": "vs",
                 "p1_difficulty": 0,
                 "p2_difficulty": 1,
-                "games": 500
+                "games": 2000
                 },
             {
                 "mode": "vs",
                 "p1_difficulty": 0,
                 "p2_difficulty": 2,
-                "games": 500
+                "games": 2000
                 },
             {
                 "mode": "vs",
                 "p1_difficulty": 0,
                 "p2_difficulty": 3,
-                "games": 500
+                "games": 2000
                 },
             {
                 "mode": "vs",
                 "p1_difficulty": 0,
                 "p2_difficulty": 4,
-                "games": 500
+                "games": 2000
                 },
             {
                 "mode": "vs",
                 "p1_difficulty": 1,
                 "p2_difficulty": 2,
-                "games": 1000
+                "games": 2000
                 },
             {
                 "mode": "vs",
                 "p1_difficulty": 1,
                 "p2_difficulty": 3,
-                "games": 1000
+                "games": 2000
                 },
             {
                 "mode": "vs",
                 "p1_difficulty": 1,
                 "p2_difficulty": 4,
-                "games": 1000
+                "games": 2000
                 },
             {
                 "mode": "vs",
                 "p1_difficulty": 2,
                 "p2_difficulty": 3,
-                "games": 1000
+                "games": 2000
                 },
             {
                 "mode": "vs",
                 "p1_difficulty": 2,
                 "p2_difficulty": 4,
-                "games": 1000
+                "games": 2000
                 },
             {
                 "mode": "vs",
                 "p1_difficulty": 3,
                 "p2_difficulty": 4,
-                "games": 1000
+                "games": 2000
                 }
             ]
         # Comment out when not debugging
@@ -142,10 +142,8 @@ class Session(object):
         for simulation in self.simulations:
             for game_number in range( 0 , simulation["games"] ):
                 print( "Game number:", game_number+1 )
-                print( simulation )
                 game = Game()
                 statistics = game.simulation( simulation["p1_difficulty"] , simulation["p2_difficulty"] , simulation["mode"] )
-                print( statistics )
                 self.print_to_file( statistics , simulation["mode"] )
 
     # Does the player want to play again?
@@ -175,7 +173,7 @@ class Game(object):
     def __init__(self):
         self.turn = "p1"
         self.players = 1
-        self.min_max_difficulty = [0,4]
+        self.min_max_difficulty = [0,5]
         self.difficulty = 0                 # Set difficulty to easiest level by default
         self.status = 0                     # 0 if game in progress, 1 if p1 wins, 2 if p2 wins
         self.ships = {
@@ -303,7 +301,6 @@ class Game(object):
                 shot = p1.bombs_away( board )
                 shot_result = p2.check_shot( shot )
                 p1.record_shot_result( shot , shot_result , board )
-                p1.print_opponent_board( board , p2.get_ships() )
             else:
                 shot = p2.bombs_away( board )
                 shot_result = p1.check_shot( shot )
@@ -318,13 +315,6 @@ class Game(object):
                 self.turn = "p2" if self.turn == "p1" else "p1"
             if self.status != 0:
                 return self.statistics( p1 , p2 , mode , "p" + str( self.status ) )
-
-            print( p1.print_opponent_board( board , p2.get_ships() ) )
-            print( p1.kill_mode )
-            print("")
-            print("")
-            print("")
-            print("")
 
     # Set the number of players
     def how_many_players(self):
@@ -816,7 +806,7 @@ class CPUPlayer(Player):
             "target_ship": "",
             "first_hit": "",
             "ship_coordinates": [],
-            "optimized": "n",
+            "optimized": "",
             "targets": [],
             "other_ships_hit": []
             }
@@ -849,24 +839,31 @@ class CPUPlayer(Player):
 
         # If the target ship was sunk...
         if shot_result[0] == True and shot_result[2] == False:
-            # Record the ship as sunk and disengage Kill Mode
-            self.opponent_ships[ shot_result[1] ] = 0
-            self.kill_mode_disengage()
+            # If the ship being targeted was sunk
+            if self.kill_mode["target_ship"] == shot_result[1]:
+                # Record the ship as sunk and disengage Kill Mode
+                self.opponent_ships[ shot_result[1] ] = 0
+                self.kill_mode_disengage()
 
-            # If any other ships were hit, reactivate kill mode to target the next ship
-            if len( self.kill_mode["other_ships_hit"] ) > 0:
-                next_ship = self.kill_mode["other_ships_hit"].pop(0)
-                self.kill_mode_engage( board, next_ship[1] , next_ship[0] , "n" if self.difficulty == "e" else "y" )
+                # If any other ships were hit, reactivate kill mode to target the next ship
+                if len( self.kill_mode["other_ships_hit"] ) > 0:
+                    next_ship = self.kill_mode["other_ships_hit"].pop(0)
+                    self.kill_mode_engage( board, next_ship[1] , next_ship[0] )
 
-                # If the ship was already hit more than once ( rare bug with A = A1-E1, B = C2-C6, S = D2-F2 or 
-                # similar configuration where a ship can be hit multiple times before active targeting )
-                if len( next_ship[2] ) > 1:
-                    self.kill_mode["ship_coordinates"] = next_ship[2]
-                    self.kill_mode["targets"] = self.target_ship( board , next_ship[2] )
+                    # If the ship was already hit more than once ( rare bug with A = A1-E1, B = C2-C6, S = D2-F2 or 
+                    # similar configuration where a ship can be hit multiple times before active targeting )
+                    if len( next_ship[2] ) > 1:
+                        self.kill_mode["ship_coordinates"] = next_ship[2]
+                        self.kill_mode["targets"] = self.target_ship( board , next_ship[2] )
+            # If another ship that was hit previously was sunk, remove it from the other_ships_hit list
+            else:
+                self.kill_mode["other_ships_hit"] = [ ship for ship in self.kill_mode["other_ships_hit"] if ship[0] != shot_result[1] ]
+                self.opponent_ships[ shot_result[1] ] = 0
+
                 
         # If the shot was the first hit on a ship, engage kill mode
         elif shot_result[0] == True and not self.kill_mode_active():
-            self.kill_mode_engage( board, shot , shot_result[1] , "y" if self.difficulty in [2,4,5,6] == 0 else "n" )
+            self.kill_mode_engage( board, shot , shot_result[1] )
         # If the shot was the a hit on the same ship...
         elif shot_result[0] == True and self.kill_mode_active() and self.kill_mode["target_ship"] == shot_result[1]:
             # Append the successful shot to the known coordinates of the shot
@@ -908,6 +905,8 @@ class CPUPlayer(Player):
             shot_coordinate = self.shot_level_3( board )
         elif self.difficulty == 4:
             shot_coordinate = self.shot_level_4( board )
+        elif self.difficulty == 5:
+            shot_coordinate = self.shot_level_5( board )
         return shot_coordinate
         
     # Returns the shot for Difficulty Level 0
@@ -963,6 +962,18 @@ class CPUPlayer(Player):
 
         return shot_coordinate
 
+    # Returns the shot for Difficulty Level 5
+    # Uses a probability model to determine squares with highest chance of containing a ship, optimized kill mode
+    def shot_level_5(self, board):
+        # If kill mode isn't active, continue firing at every other square
+        if not self.kill_mode_active():
+            shot_coordinate = self.random_shot( board , "y" )
+        # If kill mode is active, fire at the targeted ship
+        else:
+            shot_coordinate = self.kill_mode["targets"].pop(0)
+
+        return shot_coordinate
+
     # Returns a random coordinate on the board that is a non-duplicate shot
     # If parity parameter is set, constrains shots to coordinates where row and column add up to an even number (A1, A3, E5, etc)
     def random_shot(self, board, parity="n"):
@@ -990,15 +1001,11 @@ class CPUPlayer(Player):
         return shot_coordinate
 
     # Turn kill mode on and off
-    def kill_mode_engage(self, board, coordinate, target_ship = "" , optimized="n"):
-        # Ensure parameters are set to valid values
-        if optimized not in ["n","y"]:
-            optimized = "n"
-
+    def kill_mode_engage(self, board, coordinate, target_ship):
         self.kill_mode["target_ship"] = target_ship
         self.kill_mode["first_hit"] = coordinate
         self.kill_mode["ship_coordinates"].append(coordinate)
-        self.kill_mode["optimized"] = optimized
+        self.kill_mode["optimized"] = "y" if self.difficulty in [2,4,5] else "n"
 
         adjacent_targets = self.get_adjacents( board )
             
@@ -1192,7 +1199,7 @@ class CPUPlayer(Player):
         self.kill_mode["target_ship"] = ""
         self.kill_mode["first_hit"] = ""
         self.kill_mode["ship_coordinates"] = []
-        self.kill_mode["optimized"] = "n"
+        self.kill_mode["optimized"] = ""
         self.kill_mode["targets"] = []
         self.kill_mode["status"] = "off"
 
