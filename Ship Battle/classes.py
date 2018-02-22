@@ -554,6 +554,9 @@ class Board(object):
                 print( count_output, " ".join(row_output) )
                 count += 1
 
+class Probability(Board):
+    pass
+
 # Ship class
 # Deals with all things related to location and alive/dead status of ships
 class Ship(object):
