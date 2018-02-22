@@ -3,8 +3,10 @@ Bugs:
 - Targeting error when ship hit twice during targeting of other ships: fixed
 - Targeting error when ship sunk during targeting of other ships (very rare, once per 3-5k games): fixed
 
+- Crash when no value input for difficulty
+
 Enhancements:
 
-- Full probability (diff 5)
+- Probability (diff 5)
 - Easy, Medium, Hard for CPU placement
 - Graphical interface
