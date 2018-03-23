@@ -1017,15 +1017,13 @@ class CPUPlayer(Player):
         self.kill_mode["first_hit"] = coordinate
         self.kill_mode["ship_coordinates"].append(coordinate)
         self.kill_mode["optimized"] = "y" if self.difficulty in [2,4,5] else "n"
-
-        adjacent_targets = self.get_adjacents( board )
             
         # If in optimized mode, determine which direction has highest probability of containing ship
         if self.kill_mode["optimized"] == "y":
             self.kill_mode["targets"] = self.optimize_targets( board )
         # If not optimized, shuffle the targets for random firing
         else:
-            self.kill_mode["targets"] = adjacent_targets
+            self.kill_mode["targets"] = self.get_adjacents( board )
             shuffle( self.kill_mode["targets"] )
 
         self.kill_mode["status"] = "on"
