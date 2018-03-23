@@ -1,12 +1,12 @@
 Bugs:
 - Sorting bug in board.end_points(): fixed
-- Targeting error ship hit twice during targeting of other ships: fixed
+- Targeting error when ship hit twice during targeting of other ships: fixed
+- Targeting error when ship sunk during targeting of other ships (very rare, once per 3-5k games): fixed
 
-- Unknown bug, kill_mode["targets"] out of range, appears only every few thousand games
+- Crash when no value input for difficulty
 
 Enhancements:
 
-- Sector targeting (diff 5)
-- Full probability (diff 6)
+- Probability (diff 5)
 - Easy, Medium, Hard for CPU placement
 - Graphical interface
